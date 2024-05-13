@@ -6,9 +6,11 @@ import { AgentRuntimeErrorType, ILobeAgentRuntimeErrorType } from '@/libs/agent-
 import { ChatErrorType, ErrorType } from '@/types/fetch';
 import { ChatMessage, ChatMessageError } from '@/types/message';
 
+import ClerkLogin from './ClerkLogin';
 import ErrorJsonViewer from './ErrorJsonViewer';
 import InvalidAPIKey from './InvalidAPIKey';
 import InvalidAccessCode from './InvalidAccessCode';
+import OllamaBizError from './OllamaBizError';
 import OpenAiBizError from './OpenAiBizError';
 import PluginSettings from './PluginSettings';
 
@@ -58,17 +60,30 @@ const ErrorMessageExtra = memo<{ data: ChatMessage }>(({ data }) => {
       return <OpenAiBizError {...data} />;
     }
 
+    case AgentRuntimeErrorType.OllamaBizError: {
+      return <OllamaBizError {...data} />;
+    }
+
+    case ChatErrorType.InvalidClerkUser: {
+      return <ClerkLogin id={data.id} />;
+    }
+
     case ChatErrorType.InvalidAccessCode: {
       return <InvalidAccessCode id={data.id} provider={data.error?.body?.provider} />;
     }
 
     case AgentRuntimeErrorType.InvalidBedrockCredentials:
     case AgentRuntimeErrorType.InvalidZhipuAPIKey:
+    case AgentRuntimeErrorType.InvalidMinimaxAPIKey:
     case AgentRuntimeErrorType.InvalidMistralAPIKey:
     case AgentRuntimeErrorType.InvalidMoonshotAPIKey:
     case AgentRuntimeErrorType.InvalidGoogleAPIKey:
     case AgentRuntimeErrorType.InvalidPerplexityAPIKey:
     case AgentRuntimeErrorType.InvalidAnthropicAPIKey:
+    case AgentRuntimeErrorType.InvalidGroqAPIKey:
+    case AgentRuntimeErrorType.InvalidOpenRouterAPIKey:
+    case AgentRuntimeErrorType.InvalidTogetherAIAPIKey:
+    case AgentRuntimeErrorType.InvalidZeroOneAPIKey:
     case AgentRuntimeErrorType.NoOpenAIAPIKey: {
       return <InvalidAPIKey id={data.id} provider={data.error?.body?.provider} />;
     }

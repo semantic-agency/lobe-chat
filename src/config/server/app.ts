@@ -57,12 +57,6 @@ export const getAppConfig = () => {
 
     PLUGIN_SETTINGS: process.env.PLUGIN_SETTINGS,
 
-    ENABLE_OAUTH_SSO: !!process.env.ENABLE_OAUTH_SSO,
-    AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID || '',
-    AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET || '',
-    AUTH0_ISSUER: process.env.AUTH0_ISSUER || '',
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || '',
-
     ENABLE_LANGFUSE: process.env.ENABLE_LANGFUSE === '1',
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY || '',
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY || '',
