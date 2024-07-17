@@ -1,6 +1,7 @@
 import { LobeChatPluginManifest } from '@lobehub/chat-plugin-sdk';
 import { act } from '@testing-library/react';
 import { merge } from 'lodash-es';
+import OpenAI from 'openai';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
@@ -8,14 +9,17 @@ import {
   LobeAnthropicAI,
   LobeAzureOpenAI,
   LobeBedrockAI,
+  LobeDeepSeekAI,
   LobeGoogleAI,
   LobeGroq,
   LobeMistralAI,
   LobeMoonshotAI,
   LobeOllamaAI,
   LobeOpenAI,
+  LobeOpenAICompatibleRuntime,
   LobeOpenRouterAI,
   LobePerplexityAI,
+  LobeQwenAI,
   LobeTogetherAI,
   LobeZeroOneAI,
   LobeZhipuAI,
@@ -28,7 +32,7 @@ import { UserStore } from '@/store/user';
 import { UserSettingsState, initialSettingsState } from '@/store/user/slices/settings/initialState';
 import { DalleManifest } from '@/tools/dalle';
 import { ChatMessage } from '@/types/message';
-import { ChatStreamPayload } from '@/types/openai/chat';
+import { ChatStreamPayload, type OpenAIChatMessage } from '@/types/openai/chat';
 import { LobeTool } from '@/types/tool';
 
 import { chatService, initializeWithClientStore } from '../chat';
@@ -135,6 +139,7 @@ describe('ChatService', () => {
           useFileStore.setState({
             imagesMap: {
               file1: {
+                id: 'file1',
                 name: 'abc.png',
                 saveMode: 'url',
                 fileType: 'image/png',
@@ -192,6 +197,7 @@ describe('ChatService', () => {
           useFileStore.setState({
             imagesMap: {
               file1: {
+                id: 'file1',
                 name: 'abc.png',
                 saveMode: 'url',
                 fileType: 'image/png',
@@ -233,6 +239,7 @@ describe('ChatService', () => {
           useFileStore.setState({
             imagesMap: {
               file1: {
+                id: 'file1',
                 name: 'abc.png',
                 saveMode: 'url',
                 fileType: 'image/png',
@@ -659,6 +666,141 @@ Get data from users`,
       expect(onLoadingChange).toHaveBeenCalledWith(false); // 确认加载状态已经被设置为 false
     });
   });
+
+  describe('processMessage', () => {
+    it('should reorderToolMessages', () => {
+      const input: OpenAIChatMessage[] = [
+        {
+          content: '## Tools\n\nYou can use these tools',
+          role: 'system',
+        },
+        {
+          content: '',
+          role: 'assistant',
+          tool_calls: [
+            {
+              function: {
+                arguments:
+                  '{"query":"LobeChat","searchEngines":["brave","google","duckduckgo","qwant"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'call_6xCmrOtFOyBAcqpqO1TGfw2B',
+              type: 'function',
+            },
+            {
+              function: {
+                arguments:
+                  '{"query":"LobeChat","searchEngines":["brave","google","duckduckgo","qwant"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'tool_call_nXxXHW8Z',
+              type: 'function',
+            },
+            {
+              function: {
+                arguments: '{"query":"LobeHub","searchEngines":["bilibili"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'tool_call_2f3CEKz9',
+              type: 'function',
+            },
+          ],
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'call_6xCmrOtFOyBAcqpqO1TGfw2B',
+        },
+        {
+          content: 'LobeHub 是一个专注于设计和开发现代人工智能生成内容（AIGC）工具和组件的团队。',
+          role: 'assistant',
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'tool_call_nXxXHW8Z',
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'tool_call_2f3CEKz9',
+        },
+        {
+          content: '### LobeHub 智能AI聚合神器\n\nLobeHub 是一个强大的AI聚合平台',
+          role: 'assistant',
+        },
+      ];
+      const output = chatService['reorderToolMessages'](input);
+
+      expect(output).toEqual([
+        {
+          content: '## Tools\n\nYou can use these tools',
+          role: 'system',
+        },
+        {
+          content: '',
+          role: 'assistant',
+          tool_calls: [
+            {
+              function: {
+                arguments:
+                  '{"query":"LobeChat","searchEngines":["brave","google","duckduckgo","qwant"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'call_6xCmrOtFOyBAcqpqO1TGfw2B',
+              type: 'function',
+            },
+            {
+              function: {
+                arguments:
+                  '{"query":"LobeChat","searchEngines":["brave","google","duckduckgo","qwant"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'tool_call_nXxXHW8Z',
+              type: 'function',
+            },
+            {
+              function: {
+                arguments: '{"query":"LobeHub","searchEngines":["bilibili"]}',
+                name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+              },
+              id: 'tool_call_2f3CEKz9',
+              type: 'function',
+            },
+          ],
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'call_6xCmrOtFOyBAcqpqO1TGfw2B',
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'tool_call_nXxXHW8Z',
+        },
+        {
+          content: '[]',
+          name: 'lobe-web-browsing____searchWithSearXNG____builtin',
+          role: 'tool',
+          tool_call_id: 'tool_call_2f3CEKz9',
+        },
+        {
+          content: 'LobeHub 是一个专注于设计和开发现代人工智能生成内容（AIGC）工具和组件的团队。',
+          role: 'assistant',
+        },
+        {
+          content: '### LobeHub 智能AI聚合神器\n\nLobeHub 是一个强大的AI聚合平台',
+          role: 'assistant',
+        },
+      ]);
+    });
+  });
 });
 
 /**
@@ -675,10 +817,10 @@ describe('AgentRuntimeOnClient', () => {
         // Mock the global store to return the user's OpenAI API key and endpoint
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               openai: {
                 apiKey: 'user-openai-key',
-                endpoint: 'user-openai-endpoint',
+                baseURL: 'user-openai-endpoint',
               },
             },
           },
@@ -692,7 +834,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Azure provider: with apiKey, apiVersion, endpoint', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               azure: {
                 apiKey: 'user-azure-key',
                 endpoint: 'user-azure-endpoint',
@@ -709,7 +851,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Google provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               google: {
                 apiKey: 'user-google-key',
               },
@@ -724,7 +866,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Moonshot AI provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               moonshot: {
                 apiKey: 'user-moonshot-key',
               },
@@ -739,7 +881,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Bedrock provider: with accessKeyId, region, secretAccessKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               bedrock: {
                 accessKeyId: 'user-bedrock-access-key',
                 region: 'user-bedrock-region',
@@ -756,9 +898,9 @@ describe('AgentRuntimeOnClient', () => {
       it('Ollama provider: with endpoint', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               ollama: {
-                endpoint: 'http://127.0.0.1:1234',
+                baseURL: 'http://127.0.0.1:1234',
               },
             },
           },
@@ -771,7 +913,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Perplexity provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               perplexity: {
                 apiKey: 'user-perplexity-key',
               },
@@ -786,7 +928,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Anthropic provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               anthropic: {
                 apiKey: 'user-anthropic-key',
               },
@@ -801,7 +943,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Mistral provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               mistral: {
                 apiKey: 'user-mistral-key',
               },
@@ -816,7 +958,7 @@ describe('AgentRuntimeOnClient', () => {
       it('OpenRouter provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               openrouter: {
                 apiKey: 'user-openrouter-key',
               },
@@ -831,7 +973,7 @@ describe('AgentRuntimeOnClient', () => {
       it('TogetherAI provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               togetherai: {
                 apiKey: 'user-togetherai-key',
               },
@@ -846,7 +988,7 @@ describe('AgentRuntimeOnClient', () => {
       it('ZeroOneAI provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               zeroone: {
                 apiKey: 'user-zeroone-key',
               },
@@ -858,19 +1000,54 @@ describe('AgentRuntimeOnClient', () => {
         expect(runtime['_runtime']).toBeInstanceOf(LobeZeroOneAI);
       });
 
-      it('Groq provider: with apiKey', async () => {
+      it('Groq provider: with apiKey,endpoint', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               groq: {
                 apiKey: 'user-groq-key',
+                baseURL: 'user-groq-endpoint',
               },
             },
           },
         } as UserSettingsState) as unknown as UserStore;
         const runtime = await initializeWithClientStore(ModelProvider.Groq, {});
         expect(runtime).toBeInstanceOf(AgentRuntime);
-        expect(runtime['_runtime']).toBeInstanceOf(LobeGroq);
+        const lobeOpenAICompatibleInstance = runtime['_runtime'] as LobeOpenAICompatibleRuntime;
+        expect(lobeOpenAICompatibleInstance).toBeInstanceOf(LobeGroq);
+        expect(lobeOpenAICompatibleInstance.baseURL).toBe('user-groq-endpoint');
+        expect(lobeOpenAICompatibleInstance.client).toBeInstanceOf(OpenAI);
+        expect(lobeOpenAICompatibleInstance.client.apiKey).toBe('user-groq-key');
+      });
+
+      it('DeepSeek provider: with apiKey', async () => {
+        merge(initialSettingsState, {
+          settings: {
+            keyVaults: {
+              deepseek: {
+                apiKey: 'user-deepseek-key',
+              },
+            },
+          },
+        } as UserSettingsState) as unknown as UserStore;
+        const runtime = await initializeWithClientStore(ModelProvider.DeepSeek, {});
+        expect(runtime).toBeInstanceOf(AgentRuntime);
+        expect(runtime['_runtime']).toBeInstanceOf(LobeDeepSeekAI);
+      });
+
+      it('Qwen provider: with apiKey', async () => {
+        merge(initialSettingsState, {
+          settings: {
+            keyVaults: {
+              qwen: {
+                apiKey: 'user-qwen-key',
+              },
+            },
+          },
+        } as UserSettingsState) as unknown as UserStore;
+        const runtime = await initializeWithClientStore(ModelProvider.Qwen, {});
+        expect(runtime).toBeInstanceOf(AgentRuntime);
+        expect(runtime['_runtime']).toBeInstanceOf(LobeQwenAI);
       });
 
       /**
@@ -880,7 +1057,7 @@ describe('AgentRuntimeOnClient', () => {
       it('Unknown provider: with apiKey', async () => {
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               unknown: {
                 apiKey: 'user-unknown-key',
                 endpoint: 'user-unknown-endpoint',
@@ -908,7 +1085,7 @@ describe('AgentRuntimeOnClient', () => {
         }));
         merge(initialSettingsState, {
           settings: {
-            languageModel: {
+            keyVaults: {
               zhipu: {
                 apiKey: 'zhipu.user-key',
               },
